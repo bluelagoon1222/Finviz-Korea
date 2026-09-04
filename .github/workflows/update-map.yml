@@ -5,11 +5,6 @@ on:
     - cron: '30 7 * * 1-5'
     - cron: '30 9 * * 1-5'
   workflow_dispatch:
-    inputs:
-      date:
-        description: 'Base date YYYYMMDD (leave empty for the latest trading day)'
-        required: false
-        default: ''
 
 permissions:
   contents: write
@@ -39,34 +34,37 @@ jobs:
           mkdir -p site
           set +e
           python -m pip install --upgrade pip > pip.log 2>&1
-          pip install pykrx pandas openpyxl >> pip.log 2>&1
+          pip install yfinance pandas >> pip.log 2>&1
           rc=$?
           echo "=== pip exit code: $rc ===" >> pip.log
-          python -c "import pykrx, pandas; print('import ok'); print('pandas', pandas.__version__)" >> pip.log 2>&1
+          python -c "import yfinance, pandas; print('import ok'); print('pandas', pandas.__version__)" >> pip.log 2>&1
           echo "=== import exit code: $? ===" >> pip.log
-          pip show pykrx >> pip.log 2>&1
           cp pip.log site/_pip.txt
-          tail -40 pip.log
+          tail -25 pip.log
           exit $rc
 
-      - name: Fetch KRX data and build page
+      - name: Self-test the fetcher
+        if: steps.deps.outcome == 'success'
+        run: python fetch_yahoo.py --self-test
+
+      - name: Fetch prices and build page
         id: fetch
         continue-on-error: true
         if: steps.deps.outcome == 'success'
         run: |
           mkdir -p site
           set +e
-          python update_korea_map.py --backend pykrx --out site ${{ inputs.date != '' && format('--date {0}', inputs.date) || '' }} > fetch.log 2>&1
+          python fetch_yahoo.py --out site > fetch.log 2>&1
           rc=$?
           echo "=== script exit code: $rc ===" >> fetch.log
           cp fetch.log site/_fetch.txt
-          tail -80 fetch.log
+          tail -60 fetch.log
           exit $rc
 
       - name: Fallback - build page from data already in the repository
         if: steps.fetch.outcome != 'success'
         run: |
-          echo "KRX fetch was not successful. Deploying with the stored data instead."
+          echo "Fetch was not successful. Deploying with the stored data instead."
           mkdir -p site
           cp data.json site/data.json
           python -c "t=open('korea_map_template.html',encoding='utf-8').read();d=open('data.json',encoding='utf-8').read();h=t.replace('__DATA__',d);open('site/index.html','w',encoding='utf-8').write(h);open('site/korea_map.html','w',encoding='utf-8').write(h)"
@@ -77,7 +75,7 @@ jobs:
           test -s site/index.html || { echo "index.html was not generated"; exit 1; }
           python verify_data.py site/data.json
 
-      - name: Save data.json as the fallback for the next run
+      - name: Save data.json for the next run
         if: steps.fetch.outcome == 'success'
         run: |
           cp site/data.json data.json
