@@ -36,20 +36,32 @@ jobs:
         id: deps
         continue-on-error: true
         run: |
-          python -m pip install --upgrade pip
-          pip install pykrx pandas openpyxl
-          echo "--- installed versions ---"
-          python -c "import pykrx, pandas; print('pykrx ok'); print('pandas', pandas.__version__)"
+          mkdir -p site
+          set +e
+          python -m pip install --upgrade pip > pip.log 2>&1
+          pip install pykrx pandas openpyxl >> pip.log 2>&1
+          rc=$?
+          echo "=== pip exit code: $rc ===" >> pip.log
+          python -c "import pykrx, pandas; print('import ok'); print('pandas', pandas.__version__)" >> pip.log 2>&1
+          echo "=== import exit code: $? ===" >> pip.log
+          pip show pykrx >> pip.log 2>&1
+          cp pip.log site/_pip.txt
+          tail -40 pip.log
+          exit $rc
 
       - name: Fetch KRX data and build page
         id: fetch
         continue-on-error: true
         if: steps.deps.outcome == 'success'
         run: |
-          python update_korea_map.py \
-            --backend pykrx \
-            --out site \
-            ${{ inputs.date != '' && format('--date {0}', inputs.date) || '' }}
+          mkdir -p site
+          set +e
+          python update_korea_map.py --backend pykrx --out site ${{ inputs.date != '' && format('--date {0}', inputs.date) || '' }} > fetch.log 2>&1
+          rc=$?
+          echo "=== script exit code: $rc ===" >> fetch.log
+          cp fetch.log site/_fetch.txt
+          tail -80 fetch.log
+          exit $rc
 
       - name: Fallback - build page from data already in the repository
         if: steps.fetch.outcome != 'success'
@@ -58,6 +70,7 @@ jobs:
           mkdir -p site
           cp data.json site/data.json
           python -c "t=open('korea_map_template.html',encoding='utf-8').read();d=open('data.json',encoding='utf-8').read();h=t.replace('__DATA__',d);open('site/index.html','w',encoding='utf-8').write(h);open('site/korea_map.html','w',encoding='utf-8').write(h)"
+          echo "deps=${{ steps.deps.outcome }} fetch=${{ steps.fetch.outcome }}" > site/_status.txt
 
       - name: Verify output before deploying
         run: |
@@ -91,11 +104,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Summary
-        run: |
-          echo "### KOREA MAP" >> $GITHUB_STEP_SUMMARY
-          echo "- Site: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Dependencies: ${{ steps.deps.outcome }}" >> $GITHUB_STEP_SUMMARY
-          echo "- KRX fetch: ${{ steps.fetch.outcome }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Run time: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M KST')" >> $GITHUB_STEP_SUMMARY
