@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>*{box-sizing:border-box}html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>KOREA MAP</title>
+<style>
+*{box-sizing:border-box}
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2129; --line:#2a313c;
+  --txt:#e6edf3; --dim:#8b949e; --up:#2fb35c; --dn:#e0282e; --neu:#454b57;
+  --accent:#ff6b00;
+}
+:root[data-theme="light"]{
+  --bg:#f4f5f7; --panel:#ffffff; --panel2:#eef0f3; --line:#d8dce2;
+  --txt:#14181f; --dim:#5b6472; --neu:#9aa2af;
+}
+html{height:100%}
+body{background:var(--bg);color:var(--txt);
+  font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Segoe UI",system-ui,sans-serif;
+  font-size:13px;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
+
+/* ---------- header ---------- */
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:8px 12px;
+  display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;position:sticky;top:0;z-index:30}
+.brand{display:flex;align-items:baseline;gap:8px;margin-right:2px}
+.brand b{font-size:17px;letter-spacing:-.4px}
+.brand b i{color:var(--accent);font-style:normal}
+.brand span{font-size:11px;color:var(--dim)}
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:none;border:0;color:var(--dim);padding:6px 12px;font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;white-space:nowrap}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button:hover{color:var(--txt);background:rgba(255,255,255,.05)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.seg.periods button{padding:6px 9px;min-width:38px}
+.grow{flex:1 1 auto}
+#search{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);
+  padding:6px 9px;font-size:12px;width:170px;font-family:inherit}
+#search::placeholder{color:var(--dim)}
+.iconbtn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--dim);
+  padding:6px 9px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600}
+.iconbtn:hover{color:var(--txt)}
+.lbl{font-size:11px;color:var(--dim);font-weight:600;letter-spacing:.3px}
+
+/* ---------- notice ---------- */
+.notice{background:#3a1d1f;border-bottom:1px solid #5a2a2e;color:#ffc9cc;
+  padding:6px 12px;font-size:11.5px;display:flex;gap:8px;align-items:center}
+:root[data-theme="light"] .notice{background:#fff1f1;border-color:#f3c6c6;color:#8c2027}
+.notice b{color:#fff;background:#c1121f;border-radius:3px;padding:1px 6px;font-size:10.5px}
+:root[data-theme="light"] .notice b{color:#fff}
+.notice.hide{display:none}
+.notice .auto{color:#5fd48a;font-weight:600}
+.notice .auto::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#3ecf6d;margin-right:5px;vertical-align:middle;animation:pulse 2.4s ease-in-out infinite}
+:root[data-theme="light"] .notice .auto{color:#1a7a41}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes flashbg{0%{background:#1d4d31}100%{background:inherit}}
+.notice.flash{animation:flashbg 1.6s ease-out}
+@media (prefers-reduced-motion: reduce){
+  .notice .auto::before{animation:none}
+  .notice.flash{animation:none}
+}
+.notice.ok{background:#15202b;border-color:#25303d;color:#9fb4c9}
+.notice.ok b{background:#1f4f8b}
+:root[data-theme="light"] .notice.ok{background:#eef4fb;border-color:#cfdcea;color:#2f4a67}
+.notice.ok em{font-style:normal;color:#e6edf3;font-weight:600}
+:root[data-theme="light"] .notice.ok em{color:#14181f}
+
+/* ---------- stats ---------- */
+.stats{display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--line);background:var(--panel)}
+.stat{padding:7px 14px;border-right:1px solid var(--line);min-width:104px}
+.stat i{display:block;font-style:normal;font-size:10.5px;color:var(--dim);margin-bottom:2px;letter-spacing:.2px}
+.stat b{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .dn{color:var(--dn)} .neu{color:var(--dim)}
+
+/* ---------- map ---------- */
+#crumb{padding:5px 12px;font-size:11.5px;color:var(--dim);background:var(--panel);border-bottom:1px solid var(--line);display:none}
+#crumb.on{display:block}
+#crumb a{color:var(--accent);cursor:pointer;text-decoration:none;font-weight:600}
+#wrap{flex:1 1 auto;position:relative;padding:4px;min-height:0}
+#map{position:relative;width:100%;height:100%}
+.grp{position:absolute;background:var(--panel2);border:1px solid var(--bg);overflow:hidden}
+.grp>h4{position:absolute;left:0;top:0;right:0;margin:0;
+  font-weight:800;text-align:center;color:#f2f6fa;
+  background:linear-gradient(180deg,#39434f 0%,#2a323d 100%);
+  border-bottom:1px solid #10141a;
+  letter-spacing:.6px;cursor:zoom-in;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  padding:0 4px;display:flex;align-items:center;justify-content:center;gap:6px}
+:root[data-theme="light"] .grp>h4{background:linear-gradient(180deg,#cfd6df 0%,#bcc5d1 100%);
+  color:#171c24;border-bottom-color:#9aa4b2}
+.grp>h4:hover{background:var(--accent);color:#fff}
+.grp>h4 s{text-decoration:none;font-weight:700;opacity:.95;font-variant-numeric:tabular-nums}
+.cell{position:absolute;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;line-height:1.08;
+  color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55);border:.5px solid rgba(0,0,0,.35)}
+.cell:hover{outline:2px solid #fff;outline-offset:-2px;z-index:5}
+.cell.dimmed{opacity:.13}
+.cell.hit{outline:2px solid var(--accent);outline-offset:-2px;z-index:6}
+.cell .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 2px}
+.cell .pc{font-weight:600;font-variant-numeric:tabular-nums;opacity:.95;white-space:nowrap;max-width:100%;overflow:hidden}
+
+/* ---------- tooltip ---------- */
+#tip{position:fixed;z-index:50;pointer-events:none;background:#0b0e13;border:1px solid #39414d;
+  border-radius:6px;padding:8px 10px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.6);display:none;
+  min-width:190px;color:#e6edf3}
+#tip h5{margin:0 0 5px;font-size:13px;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+#tip h5 em{font-style:normal;color:#8b949e;font-size:11px;font-weight:500}
+#tip table{border-collapse:collapse;width:100%}
+#tip td{padding:1px 0;font-size:11.5px}
+#tip td:first-child{color:#8b949e;padding-right:12px;white-space:nowrap}
+#tip td:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#tip .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 8px;margin-top:6px;
+  border-top:1px solid #2a313c;padding-top:5px}
+#tip .grid div{display:flex;justify-content:space-between;font-size:11px;gap:6px}
+#tip .grid span{color:#8b949e}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--line);background:var(--panel);padding:7px 12px;
+  display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:11px;color:var(--dim)}
+.scale{display:flex;align-items:center;gap:0}
+.scale i{width:26px;height:13px;display:block}
+.scale u{text-decoration:none;padding:0 6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.movers{display:flex;gap:14px;flex-wrap:wrap}
+.movers div{display:flex;gap:5px;align-items:center}
+.movers b{font-weight:600;color:var(--txt)}
+
+@media(max-width:760px){
+  .brand span{display:none}
+  #search{width:110px}
+  .stat{min-width:84px;padding:6px 10px}
+  #wrap{padding:2px}
+  header{padding:6px 8px;gap:6px 8px}
+  .notice{padding:5px 8px;font-size:10.5px}
+  .stat{min-width:0;padding:5px 8px}
+  .stat b{font-size:12.5px}
+  .stat i{font-size:9.5px}
+  footer{padding:5px 8px;font-size:10px;flex-wrap:nowrap;overflow:hidden}
+  .scale u.w{display:none}
+  .scale i{width:18px}
+  .movers{display:none}
+  .seg button{padding:6px 8px;font-size:11.5px}
+  .seg.periods button{min-width:32px;padding:6px 5px}
+}
+</style>
+
+</head>
+<body>
+<header>
+  <div class="brand"><b>KOREA <i>MAP</i></b><span>한국 주식시장 히트맵</span></div>
+
+  <div class="seg" id="mkt" role="group" aria-label="시장">
+    <button data-m="KOSPI" aria-pressed="true">KOSPI</button>
+    <button data-m="KOSDAQ" aria-pressed="false">KOSDAQ</button>
+    <button data-m="ETF" aria-pressed="false">ETF</button>
+  </div>
+
+  <span class="lbl">PERFORMANCE</span>
+  <div class="seg periods" id="per" role="group" aria-label="기간"></div>
+
+  <span class="grow"></span>
+  <input id="search" type="search" placeholder="종목명 · 코드 검색" autocomplete="off">
+  <button class="iconbtn" id="sizeBtn" title="셀 크기 기준">시총가중</button>
+  <button class="iconbtn" id="themeBtn" title="테마 전환">◐</button>
+</header>
+
+<div class="notice" id="notice">
+  <b>안내</b>
+  <span id="noticeTxt"></span>
+</div>
+
+<div class="stats" id="stats"></div>
+<div id="crumb"><a id="crumbBack">← 전체 지도</a> <span id="crumbTxt"></span></div>
+
+<div id="wrap"><div id="map"></div></div>
+
+<footer>
+  <div class="scale" id="scale"></div>
+  <span class="grow"></span>
+  <div class="movers" id="movers"></div>
+</footer>
+
+<div id="tip"></div>
+
+<script>
+const DATA = __DATA__;
+const PERIODS = DATA.meta.periods;
+const PERIOD_LABEL = {"1D":"1일","1W":"1주","1M":"1개월","3M":"3개월","6M":"6개월","1Y":"1년","3Y":"3년","5Y":"5년","10Y":"10년"};
+/* 기간별 색상 포화 상한(%) — FINVIZ 방식으로 기간이 길수록 완만하게 */
+const CAP = {"1D":3,"1W":6,"1M":12,"3M":22,"6M":35,"1Y":60,"3Y":120,"5Y":180,"10Y":300};
+
+let state = {market:"KOSPI", period:"1D", zoom:null, sizeMode:0, query:""};   /* sizeMode 0 = √시총 */
+const SIZE_MODES = [
+  ["시총√가중","기본 — 제곱근 완화로 대형주 쏠림을 줄여 중소형주까지 보이게 합니다"],
+  ["시총가중","시가총액에 그대로 비례 (삼성전자·SK하이닉스가 화면의 절반을 차지)"],
+  ["동일가중","모든 종목을 같은 크기로"],
+];
+
+/* ================= 색상 ================= */
+function lerp(a,b,t){return a+(b-a)*t}
+function hex(c){return "#"+c.map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,"0")).join("")}
+/* 상승 GREEN · 하락 RED (미국식). 한국식으로 되돌리려면 UP_/DN_ 값을 서로 바꾸면 됩니다. */
+const NEUTRAL=[65,73,85], UP_MID=[26,96,52], UP_HI=[48,178,88], DN_MID=[124,26,32], DN_HI=[224,40,46];
+function colorFor(pct, cap){
+  if(pct===null||pct===undefined||isNaN(pct)) return "#3a4050";
+  const t0 = Math.min(Math.abs(pct)/cap, 1);
+  const t = Math.pow(t0, 0.62);
+  const A = NEUTRAL, B = pct>=0?UP_MID:DN_MID, C = pct>=0?UP_HI:DN_HI;
+  let out;
+  if(t<0.5){const u=t/0.5; out=[lerp(A[0],B[0],u),lerp(A[1],B[1],u),lerp(A[2],B[2],u)];}
+  else{const u=(t-0.5)/0.5; out=[lerp(B[0],C[0],u),lerp(B[1],C[1],u),lerp(B[2],C[2],u)];}
+  return hex(out);
+}
+const fmtPct = v => (v>0?"+":"") + v.toFixed(2) + "%";
+const fmtMcap = v => v>=1 ? v.toFixed(v>=100?0:1)+"조" : (v*10000).toFixed(0)+"억";
+const cls = v => v>0?"up":(v<0?"dn":"neu");
+
+/* ================= squarified treemap ================= */
+function worst(row, sum, total, w, h, horiz){
+  const thick = horiz ? w*(sum/total) : h*(sum/total);
+  let bad = 1;
+  for(const it of row){
+    const other = horiz ? h*(it.value/sum) : w*(it.value/sum);
+    if(other<=0||thick<=0) return Infinity;
+    bad = Math.max(bad, Math.max(thick/other, other/thick));
+  }
+  return bad;
+}
+function squarify(items, x, y, w, h){
+  const out=[]; const list=items.filter(i=>i.value>0).slice().sort((a,b)=>b.value-a.value);
+  let total=list.reduce((s,i)=>s+i.value,0);
+  if(total<=0||w<=0||h<=0) return out;
+  while(list.length){
+    const horiz = w>=h;
+    const row=[]; let sum=0, best=Infinity;
+    while(list.length){
+      const cand=list[0], ts=sum+cand.value;
+      const r=worst(row.concat([cand]), ts, total, w, h, horiz);
+      if(row.length===0 || r<=best){row.push(list.shift()); sum=ts; best=r;} else break;
+    }
+    const frac = sum/total;
+    if(horiz){
+      const rw=w*frac; let cy=y;
+      for(const it of row){const ih=h*(it.value/sum); out.push({it,x,y:cy,w:rw,h:ih}); cy+=ih;}
+      x+=rw; w-=rw;
+    }else{
+      const rh=h*frac; let cx=x;
+      for(const it of row){const iw=w*(it.value/sum); out.push({it,x:cx,y,w:iw,h:rh}); cx+=iw;}
+      y+=rh; h-=rh;
+    }
+    total-=sum;
+  }
+  return out;
+}
+
+/* ================= 렌더 ================= */
+const $map=document.getElementById("map"), $tip=document.getElementById("tip");
+let lastRows=[];
+
+function rowsOf(){
+  let rows = DATA.markets[state.market].slice();
+  if(state.zoom) rows = rows.filter(r=>r.s===state.zoom);
+  return rows;
+}
+function sizeOf(r){
+  const m = Math.max(r.m, 0.02);
+  return state.sizeMode===0 ? Math.sqrt(m) : (state.sizeMode===1 ? m : 1);
+}
+
+let _lastH = 0, _reflow = false;
+function render(){
+  const rows = rowsOf(); lastRows = rows;
+  const P = state.period, cap = CAP[P];
+  drawStats(rows); drawMovers(rows);          // 헤더 높이를 먼저 확정한 뒤 측정
+  const W = $map.clientWidth, H = $map.clientHeight;
+  $map.innerHTML="";
+  if(!rows.length||W<20||H<20) return;
+
+  // 섹터 집계
+  const byS = new Map();
+  for(const r of rows){ if(!byS.has(r.s)) byS.set(r.s,[]); byS.get(r.s).push(r); }
+  const groups=[...byS.entries()].map(([s,list])=>({
+    s, list, value: list.reduce((a,b)=>a+sizeOf(b),0)
+  }));
+
+  const single = state.zoom || groups.length===1;
+  const placed = single
+    ? [{it:groups[0], x:0, y:0, w:W, h:H}]
+    : squarify(groups, 0, 0, W, H);
+
+  const q = state.query.trim().toLowerCase();
+  const frag = document.createDocumentFragment();
+
+  for(const g of placed){
+    const box=document.createElement("div");
+    box.className="grp";
+    box.style.cssText=`left:${g.x}px;top:${g.y}px;width:${g.w}px;height:${g.h}px`;
+    const showHead = g.h>24 && g.w>40;
+    let iy=0;
+    if(showHead){
+      const hd=document.createElement("h4");
+      // 섹터 제목은 이 화면의 주인공 — 그룹이 클수록 크게, 종목명보다 항상 우위
+      const hh = Math.round(Math.max(15, Math.min(30, Math.min(g.w*0.075, g.h*0.16, 30))));
+      const hf = Math.max(9.5, Math.min(hh*0.60, 17));
+      hd.style.height = hh+"px";
+      hd.style.fontSize = hf.toFixed(1)+"px";
+      const gw = g.it.list.reduce((a,b)=>a+b.r[P]*Math.max(b.m,.02),0)/g.it.list.reduce((a,b)=>a+Math.max(b.m,.02),0);
+      const pctTxt = fmtPct(gw);
+      const fits = (g.it.s.length*hf*0.95 + pctTxt.length*hf*0.60) < g.w-14;
+      hd.innerHTML = g.it.s + (fits ? `<s class="${cls(gw)}">${pctTxt}</s>` : "");
+      hd.title = g.it.s+" · "+g.it.list.length+"종목 · 시총가중 "+pctTxt;
+      hd.onclick = e=>{ e.stopPropagation(); state.zoom = state.zoom? null : g.it.s; sync(); };
+      box.appendChild(hd); iy=hh;
+      g._hf = hf;
+    }
+    const cells = squarify(g.it.list.map(r=>({value:sizeOf(r), r})), 1, iy+1, g.w-2, g.h-iy-2);
+    for(const c of cells){
+      const r=c.it.r, v=r.r[P];
+      const el=document.createElement("div");
+      el.className="cell";
+      el.style.cssText=`left:${c.x}px;top:${c.y}px;width:${Math.max(c.w-1,0)}px;height:${Math.max(c.h-1,0)}px;background:${colorFor(v,cap)}`;
+      el.dataset.c=r.c;
+      if(c.w>26&&c.h>13){
+        // 종목명 상한은 섹터 제목보다 낮게 유지한다
+        const nameCap = Math.max(9, Math.min(14, (g._hf||13) - 1.5));
+        const fs=Math.max(7,Math.min(nameCap, Math.min(c.w/(r.n.length*0.60+1.2), c.h*0.42)));
+        const nm=document.createElement("div"); nm.className="nm";
+        nm.style.fontSize=fs.toFixed(1)+"px"; nm.textContent=r.n;
+        el.appendChild(nm);
+        const txt=fmtPct(v), pfs=Math.max(7,Math.min(fs*0.86,14));
+        if(c.h>fs*2.0+4 && txt.length*pfs*0.56 <= c.w-3){   // 잘려서 오독될 값은 표시하지 않음
+          const pc=document.createElement("div"); pc.className="pc";
+          pc.style.fontSize=pfs.toFixed(1)+"px";
+          pc.textContent=txt; el.appendChild(pc);
+        }
+      }
+      if(q){
+        const hit = r.n.toLowerCase().includes(q)||r.c.includes(q)||(r.e||"").toLowerCase().includes(q);
+        el.classList.add(hit?"hit":"dimmed");
+      }
+      el._r=r;
+      frag.appendChild(el); box.appendChild(el);
+    }
+    frag.appendChild(box);
+  }
+  $map.appendChild(frag);
+  if(Math.abs(H-_lastH)>2 && !_reflow){        // 레이아웃 확정 후 1회 재배치
+    _lastH = H; _reflow = true;
+    requestAnimationFrame(()=>{ _reflow=false; if(Math.abs($map.clientHeight-H)>2) render(); });
+  } else { _lastH = H; }
+}
+
+/* ================= 요약 / 범례 ================= */
+function drawStats(rows){
+  const P=state.period;
+  const up=rows.filter(r=>r.r[P]>0).length, dn=rows.filter(r=>r.r[P]<0).length;
+  const flat=rows.length-up-dn;
+  const tw=rows.reduce((a,b)=>a+Math.max(b.m,0.02),0);
+  const wavg=rows.reduce((a,b)=>a+b.r[P]*Math.max(b.m,0.02),0)/tw;
+  const eavg=rows.reduce((a,b)=>a+b.r[P],0)/rows.length;
+  const unit = state.market==="ETF" ? "순자산 합계" : "시가총액 합계";
+  document.getElementById("stats").innerHTML = [
+    ["구성", `${rows.length}<span style="font-size:11px;color:var(--dim)">종목</span>`, ""],
+    ["기간", PERIOD_LABEL[P]+" 수익률", ""],
+    ["시총가중 평균", fmtPct(wavg), cls(wavg)],
+    ["단순평균", fmtPct(eavg), cls(eavg)],
+    ["상승", up+"종목", "up"],
+    ["하락", dn+"종목", "dn"],
+    ["보합", flat+"종목", "neu"],
+    [unit, fmtMcap(tw), ""],
+  ].map(([k,v,c])=>`<div class="stat"><i>${k}</i><b class="${c}">${v}</b></div>`).join("");
+}
+function drawMovers(rows){
+  const P=state.period;
+  const s=rows.slice().sort((a,b)=>b.r[P]-a.r[P]);
+  const top=s.slice(0,3), bot=s.slice(-3).reverse();
+  document.getElementById("movers").innerHTML =
+    `<div><span style="color:var(--up);font-weight:700">▲ 상위</span> ${top.map(r=>`<b>${r.n}</b> ${fmtPct(r.r[P])}`).join(" · ")}</div>`+
+    `<div><span style="color:var(--dn);font-weight:700">▼ 하위</span> ${bot.map(r=>`<b>${r.n}</b> ${fmtPct(r.r[P])}`).join(" · ")}</div>`;
+}
+function drawScale(){
+  const cap=CAP[state.period];
+  const pts=[-cap,-cap*0.6,-cap*0.25,0,cap*0.25,cap*0.6,cap];
+  document.getElementById("scale").innerHTML =
+    `<u class="w" style="color:var(--dn);font-weight:700">하락</u>`+
+    pts.map(v=>`<i style="background:${colorFor(v,cap)}" title="${v.toFixed(1)}%"></i>`).join("")+
+    `<u class="w" style="color:var(--up);font-weight:700">상승</u>`+
+    `<u style="color:var(--dim);padding-left:8px">포화 ±${cap}% · ${PERIOD_LABEL[state.period]} 기준 · 상승 초록 / 하락 빨강</u>`;
+}
+
+/* ================= 툴팁 ================= */
+function tipHTML(r){
+  const P=state.period;
+  const grid = PERIODS.map(p=>{
+    const v=r.r[p]; const on = p===P?'style="font-weight:700"':'';
+    return `<div ${on}><span>${p}</span><em class="${cls(v)}" style="font-style:normal">${fmtPct(v)}</em></div>`;
+  }).join("");
+  const rows = state.market==="ETF"
+    ? [["분류",r.s],["순자산",fmtMcap(r.m)],[PERIOD_LABEL[P]+" 수익률",`<span class="${cls(r.r[P])}">${fmtPct(r.r[P])}</span>`]]
+    : [["업종",r.s],["현재가",r.p.toLocaleString()+"원"],["시가총액",fmtMcap(r.m)],
+       [PERIOD_LABEL[P]+" 수익률",`<span class="${cls(r.r[P])}">${fmtPct(r.r[P])}</span>`]];
+  return `<h5>${r.n}<em>${r.c}</em></h5>
+    <table>${rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join("")}</table>
+    <div class="grid">${grid}</div>`;
+}
+$map.addEventListener("mousemove", e=>{
+  const el=e.target.closest(".cell");
+  if(!el||!el._r){$tip.style.display="none";return}
+  $tip.innerHTML=tipHTML(el._r); $tip.style.display="block";
+  const w=$tip.offsetWidth,h=$tip.offsetHeight;
+  let x=e.clientX+14, y=e.clientY+14;
+  if(x+w>innerWidth-8) x=e.clientX-w-14;
+  if(y+h>innerHeight-8) y=e.clientY-h-14;
+  $tip.style.left=Math.max(4,x)+"px"; $tip.style.top=Math.max(4,y)+"px";
+});
+$map.addEventListener("mouseleave", ()=>{$tip.style.display="none"});
+$map.addEventListener("click", e=>{
+  const el=e.target.closest(".cell");
+  if(!el||!el._r) return;
+  window.open("https://finance.naver.com/item/main.naver?code="+el._r.c,"_blank","noopener");
+});
+
+/* ================= 컨트롤 ================= */
+const $per=document.getElementById("per");
+$per.innerHTML = PERIODS.map(p=>`<button data-p="${p}" aria-pressed="${p===state.period}">${p}</button>`).join("");
+$per.onclick = e=>{const b=e.target.closest("button"); if(!b)return; state.period=b.dataset.p; sync();};
+document.getElementById("mkt").onclick = e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  state.market=b.dataset.m; state.zoom=null; sync();
+};
+document.getElementById("search").oninput = e=>{state.query=e.target.value; render();};
+const $size=document.getElementById("sizeBtn");
+function applySize(){
+  $size.textContent=SIZE_MODES[state.sizeMode][0];
+  $size.title=SIZE_MODES[state.sizeMode][1];
+}
+$size.onclick = ()=>{
+  state.sizeMode=(state.sizeMode+1)%SIZE_MODES.length;
+  applySize();
+  try{localStorage.setItem("kmap-size", state.sizeMode)}catch(_){}
+  render();
+};
+try{
+  const sm=parseInt(localStorage.getItem("kmap-size"),10);
+  if(!isNaN(sm) && sm>=0 && sm<SIZE_MODES.length) state.sizeMode=sm;
+}catch(_){}
+applySize();
+document.getElementById("themeBtn").onclick = ()=>{
+  const r=document.documentElement;
+  r.dataset.theme = r.dataset.theme==="light" ? "dark" : "light";
+  try{localStorage.setItem("kmap-theme", r.dataset.theme)}catch(_){}
+  render();
+};
+document.getElementById("crumbBack").onclick = ()=>{state.zoom=null; sync();};
+
+/* ================= 데이터 신선도 / 자동 새로고침 ================= */
+const REFRESH_MS = 5*60*1000;        /* 5분마다 데이터 파일을 다시 확인 */
+const LIVE = location.protocol === "http:" || location.protocol === "https:";
+
+function updatedAgo(){
+  const raw = (DATA.meta && DATA.meta.updatedAt) || "";
+  const s = raw.replace(" KST","").replace(" ","T");
+  if(!s) return "";
+  const t = new Date(s.length<=16 ? s+":00+09:00" : s+"+09:00");
+  if(isNaN(t.getTime())) return "";
+  const min = Math.max(0, Math.round((Date.now()-t.getTime())/60000));
+  if(min < 1)  return "방금 전";
+  if(min < 60) return min+"분 전";
+  const h = Math.floor(min/60);
+  if(h < 24)   return h+"시간 "+(min%60)+"분 전";
+  return Math.floor(h/24)+"일 전";
+}
+
+function drawNotice(){
+  const M = DATA.meta;
+  const sampleMkt = (M.sampleMarkets||[]).includes(state.market);
+  const real = (M.realPeriods||[]).includes(state.period) && !sampleMkt;
+  const nt = document.getElementById("notice");
+  nt.classList.toggle("ok", real);
+  nt.querySelector("b").textContent = real ? "시세" : "안내";
+  const ago = updatedAgo();
+  document.getElementById("noticeTxt").innerHTML = real
+    ? `기준일 <em>${M.asOf}</em>${M.updatedAt?` · 갱신 <em>${M.updatedAt}</em>${ago?` <i style="font-style:normal;opacity:.75">(${ago})</i>`:""}`:""}`
+      + ` · 출처 ${M.source||"KRX"}`
+      + (LIVE ? ` · <span class="auto">자동 새로고침 켜짐</span>` : "")
+      + ` · 셀을 클릭하면 해당 종목 시세 페이지가 열립니다.`
+    : `${sampleMkt?"ETF 수치":PERIOD_LABEL[state.period]+" 수익률"}은 화면 검증용 샘플값입니다. 갱신 스크립트를 한 번 실행하면 실제 데이터로 교체됩니다.`;
+}
+
+async function poll(){
+  if(!LIVE) return;
+  try{
+    const res = await fetch("data.json?t="+Date.now(), {cache:"no-store"});
+    if(!res.ok) return;
+    const nd = await res.json();
+    if(!nd || !nd.meta || !nd.markets) return;
+    if(nd.meta.updatedAt && nd.meta.updatedAt === DATA.meta.updatedAt) { drawNotice(); return; }
+    DATA.meta = nd.meta; DATA.markets = nd.markets;
+    sync();
+    const nt = document.getElementById("notice");
+    nt.classList.remove("flash"); void nt.offsetWidth; nt.classList.add("flash");
+  }catch(_){ /* 오프라인·로컬 파일 등 — 조용히 무시 */ }
+}
+
+function sync(){
+  for(const b of document.querySelectorAll("#mkt button")) b.setAttribute("aria-pressed", b.dataset.m===state.market);
+  for(const b of document.querySelectorAll("#per button")) b.setAttribute("aria-pressed", b.dataset.p===state.period);
+  const cb=document.getElementById("crumb");
+  cb.classList.toggle("on", !!state.zoom);
+  document.getElementById("crumbTxt").textContent = state.zoom ? " / "+state.zoom+" 확대" : "";
+  drawNotice();
+  drawScale(); render();
+}
+try{const t=localStorage.getItem("kmap-theme"); if(t) document.documentElement.dataset.theme=t;}catch(_){}
+let rt; addEventListener("resize", ()=>{clearTimeout(rt); rt=setTimeout(render,120)});
+sync();
+setInterval(drawNotice, 60*1000);          /* 경과시간 표시 갱신 */
+if(LIVE){
+  setInterval(poll, REFRESH_MS);
+  addEventListener("visibilitychange", ()=>{ if(!document.hidden) poll(); });  /* 탭 복귀 시 즉시 확인 */
+}
+</script>
+
+</body>
+</html>
