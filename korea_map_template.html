@@ -51,6 +51,17 @@ header{background:var(--panel);border-bottom:1px solid var(--line);padding:8px 1
 .notice b{color:#fff;background:#c1121f;border-radius:3px;padding:1px 6px;font-size:10.5px}
 :root[data-theme="light"] .notice b{color:#fff}
 .notice.hide{display:none}
+.notice .auto{color:#5fd48a;font-weight:600}
+.notice .auto::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#3ecf6d;margin-right:5px;vertical-align:middle;animation:pulse 2.4s ease-in-out infinite}
+:root[data-theme="light"] .notice .auto{color:#1a7a41}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes flashbg{0%{background:#1d4d31}100%{background:inherit}}
+.notice.flash{animation:flashbg 1.6s ease-out}
+@media (prefers-reduced-motion: reduce){
+  .notice .auto::before{animation:none}
+  .notice.flash{animation:none}
+}
 .notice.ok{background:#15202b;border-color:#25303d;color:#9fb4c9}
 .notice.ok b{background:#1f4f8b}
 :root[data-theme="light"] .notice.ok{background:#eef4fb;border-color:#cfdcea;color:#2f4a67}
@@ -443,26 +454,72 @@ document.getElementById("themeBtn").onclick = ()=>{
 };
 document.getElementById("crumbBack").onclick = ()=>{state.zoom=null; sync();};
 
+/* ================= 데이터 신선도 / 자동 새로고침 ================= */
+const REFRESH_MS = 5*60*1000;        /* 5분마다 데이터 파일을 다시 확인 */
+const LIVE = location.protocol === "http:" || location.protocol === "https:";
+
+function updatedAgo(){
+  const raw = (DATA.meta && DATA.meta.updatedAt) || "";
+  const s = raw.replace(" KST","").replace(" ","T");
+  if(!s) return "";
+  const t = new Date(s.length<=16 ? s+":00+09:00" : s+"+09:00");
+  if(isNaN(t.getTime())) return "";
+  const min = Math.max(0, Math.round((Date.now()-t.getTime())/60000));
+  if(min < 1)  return "방금 전";
+  if(min < 60) return min+"분 전";
+  const h = Math.floor(min/60);
+  if(h < 24)   return h+"시간 "+(min%60)+"분 전";
+  return Math.floor(h/24)+"일 전";
+}
+
+function drawNotice(){
+  const M = DATA.meta;
+  const sampleMkt = (M.sampleMarkets||[]).includes(state.market);
+  const real = (M.realPeriods||[]).includes(state.period) && !sampleMkt;
+  const nt = document.getElementById("notice");
+  nt.classList.toggle("ok", real);
+  nt.querySelector("b").textContent = real ? "시세" : "안내";
+  const ago = updatedAgo();
+  document.getElementById("noticeTxt").innerHTML = real
+    ? `기준일 <em>${M.asOf}</em>${M.updatedAt?` · 갱신 <em>${M.updatedAt}</em>${ago?` <i style="font-style:normal;opacity:.75">(${ago})</i>`:""}`:""}`
+      + ` · 출처 ${M.source||"KRX"}`
+      + (LIVE ? ` · <span class="auto">자동 새로고침 켜짐</span>` : "")
+      + ` · 셀을 클릭하면 해당 종목 시세 페이지가 열립니다.`
+    : `${sampleMkt?"ETF 수치":PERIOD_LABEL[state.period]+" 수익률"}은 화면 검증용 샘플값입니다. 갱신 스크립트를 한 번 실행하면 실제 데이터로 교체됩니다.`;
+}
+
+async function poll(){
+  if(!LIVE) return;
+  try{
+    const res = await fetch("data.json?t="+Date.now(), {cache:"no-store"});
+    if(!res.ok) return;
+    const nd = await res.json();
+    if(!nd || !nd.meta || !nd.markets) return;
+    if(nd.meta.updatedAt && nd.meta.updatedAt === DATA.meta.updatedAt) { drawNotice(); return; }
+    DATA.meta = nd.meta; DATA.markets = nd.markets;
+    sync();
+    const nt = document.getElementById("notice");
+    nt.classList.remove("flash"); void nt.offsetWidth; nt.classList.add("flash");
+  }catch(_){ /* 오프라인·로컬 파일 등 — 조용히 무시 */ }
+}
+
 function sync(){
   for(const b of document.querySelectorAll("#mkt button")) b.setAttribute("aria-pressed", b.dataset.m===state.market);
   for(const b of document.querySelectorAll("#per button")) b.setAttribute("aria-pressed", b.dataset.p===state.period);
   const cb=document.getElementById("crumb");
   cb.classList.toggle("on", !!state.zoom);
   document.getElementById("crumbTxt").textContent = state.zoom ? " / "+state.zoom+" 확대" : "";
-  const M = DATA.meta;
-  const sampleMkt = (M.sampleMarkets||[]).includes(state.market);
-  const real = (M.realPeriods||[]).includes(state.period) && !sampleMkt;
-  const nt = document.getElementById("notice");
-  nt.classList.toggle("ok", real);
-  nt.querySelector("b").textContent = real ? "KRX" : "안내";
-  document.getElementById("noticeTxt").innerHTML = real
-    ? `기준일 <em>${M.asOf}</em>${M.updatedAt?` · 갱신 <em>${M.updatedAt}</em>`:""} · 출처 ${M.source||"KRX"} · 셀을 클릭하면 해당 종목 시세 페이지가 열립니다.`
-    : `${sampleMkt?"ETF 수치":PERIOD_LABEL[state.period]+" 수익률"}은 화면 검증용 샘플값입니다. 갱신 스크립트를 한 번 실행하면 실제 데이터로 교체됩니다.`;
+  drawNotice();
   drawScale(); render();
 }
 try{const t=localStorage.getItem("kmap-theme"); if(t) document.documentElement.dataset.theme=t;}catch(_){}
 let rt; addEventListener("resize", ()=>{clearTimeout(rt); rt=setTimeout(render,120)});
 sync();
+setInterval(drawNotice, 60*1000);          /* 경과시간 표시 갱신 */
+if(LIVE){
+  setInterval(poll, REFRESH_MS);
+  addEventListener("visibilitychange", ()=>{ if(!document.hidden) poll(); });  /* 탭 복귀 시 즉시 확인 */
+}
 </script>
 
 </body>
