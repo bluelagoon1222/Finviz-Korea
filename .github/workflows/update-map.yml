@@ -3,10 +3,15 @@ name: Update KOREA MAP
 # Fixed schedule. No self-triggering chain.
 # Times below are UTC. KST = UTC + 9.
 #
-#   '7,37 0-6 * * 1-5'  ->  09:07, 09:37, 10:07 ... 15:07, 15:37 KST  (14 runs)
-#   '47 6 * * 1-5'      ->  15:47 KST, confirmed close, this run commits data.json
+#   '7 0-6 * * 1-5'   ->  09:07, 10:07, 11:07 ... 15:07 KST  (7 runs)
+#   '37 0-6 * * 1-5'  ->  09:37, 10:37, 11:37 ... 15:37 KST  (7 runs)
+#   '47 6 * * 1-5'    ->  15:47 KST, confirmed close, this run commits data.json
 #
-# Minutes :07 and :37 are used instead of :00 and :30 on purpose.
+# The two intraday lines are written separately on purpose. A single line
+# with a comma list ('7,37 0-6 * * 1-5') did not register reliably.
+# The single-minute form has a confirmed history of firing on this repository.
+#
+# Minutes :07, :37 and :47 are used instead of :00 and :30 on purpose.
 # :00 and :30 are GitHub's peak-load minutes and scheduled runs are
 # frequently delayed or dropped there.
 #
@@ -15,7 +20,8 @@ name: Update KOREA MAP
 
 on:
   schedule:
-    - cron: '7,37 0-6 * * 1-5'
+    - cron: '7 0-6 * * 1-5'
+    - cron: '37 0-6 * * 1-5'
     - cron: '47 6 * * 1-5'
   workflow_dispatch:
 
@@ -124,5 +130,5 @@ jobs:
         run: |
           echo "### KOREA MAP updated" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Site: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Trigger: ${{ github.event_name }} ${{ github.event.schedule }}" >> $GITHUB_STEP_SUMMARY
           echo "- Run time: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M KST')" >> $GITHUB_STEP_SUMMARY
