@@ -1,29 +1,34 @@
 name: Update KOREA MAP
 
-# Fixed schedule. No self-triggering chain.
-# Times below are UTC. KST = UTC + 9.
+# Triggered by an external scheduler (cron-job.org) through the GitHub API.
 #
-#   '7 0-6 * * 1-5'   ->  09:07, 10:07, 11:07 ... 15:07 KST  (7 runs)
-#   '37 0-6 * * 1-5'  ->  09:37, 10:37, 11:37 ... 15:37 KST  (7 runs)
-#   '47 6 * * 1-5'    ->  15:47 KST, confirmed close, this run commits data.json
+# GitHub's own schedule events on this repository were delayed by up to
+# five hours, so they are no longer used for intraday updates. Only one
+# GitHub cron is kept, as a safety net in case the external caller fails.
 #
-# The two intraday lines are written separately on purpose. A single line
-# with a comma list ('7,37 0-6 * * 1-5') did not register reliably.
-# The single-minute form has a confirmed history of firing on this repository.
+# External caller sends:
+#   POST /repos/OWNER/REPO/actions/workflows/update-map.yml/dispatches
+#   body {"ref":"main","inputs":{"commit":"false"}}  for intraday runs
+#   body {"ref":"main","inputs":{"commit":"true"}}   for the 15:47 KST close run
 #
-# Minutes :07, :37 and :47 are used instead of :00 and :30 on purpose.
-# :00 and :30 are GitHub's peak-load minutes and scheduled runs are
-# frequently delayed or dropped there.
+# commit = true  -> data.json is committed back to the repository
+# commit = false -> the site is rebuilt and deployed, nothing is committed
 #
-# If one slot is skipped by GitHub, only that slot is lost. The next slot
-# runs normally 30 minutes later. Nothing has to be restarted by hand.
+# Times in the fallback cron are UTC. KST = UTC + 9.
 
 on:
   schedule:
-    - cron: '7 0-6 * * 1-5'
-    - cron: '37 0-6 * * 1-5'
-    - cron: '47 6 * * 1-5'
+    - cron: '47 6 * * 1-5'   # fallback only: 15:47 KST
   workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit data.json back to the repository'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 permissions:
   contents: write
@@ -99,7 +104,7 @@ jobs:
         if: >-
           steps.fetch.outcome == 'success' &&
           ( github.event.schedule == '47 6 * * 1-5' ||
-            github.event_name == 'workflow_dispatch' )
+            ( github.event_name == 'workflow_dispatch' && inputs.commit == 'true' ) )
         run: |
           cp site/data.json data.json
           if git diff --quiet -- data.json; then
@@ -131,4 +136,5 @@ jobs:
           echo "### KOREA MAP updated" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Trigger: ${{ github.event_name }} ${{ github.event.schedule }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit requested: ${{ inputs.commit }}" >> $GITHUB_STEP_SUMMARY
           echo "- Run time: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M KST')" >> $GITHUB_STEP_SUMMARY
