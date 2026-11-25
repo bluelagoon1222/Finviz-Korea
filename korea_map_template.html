@@ -134,6 +134,12 @@ footer{border-top:1px solid var(--line);background:var(--panel);padding:7px 12px
   display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:11px;color:var(--dim)}
 .scale{display:flex;align-items:center;gap:0}
 .scale i{width:26px;height:13px;display:block}
+.scale .sc{display:flex;flex-direction:column;align-items:center}
+.scale .sc small{font-size:9.5px;line-height:1;margin-top:2px;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap;height:10px}
+#toast{position:fixed;left:50%;bottom:calc(70px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;
+  max-width:calc(100% - 24px);background:#0b0e13;color:#e6edf3;border:1px solid #39414d;border-radius:10px;
+  padding:10px 14px;font-size:13px;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.5);display:none;text-align:center}
+#moversBtn{display:none}
 .scale u{text-decoration:none;padding:0 6px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .movers{display:flex;gap:14px;flex-wrap:wrap}
 .movers div{display:flex;gap:5px;align-items:center}
@@ -153,6 +159,11 @@ footer{border-top:1px solid var(--line);background:var(--panel);padding:7px 12px
   .scale u.w{display:none}
   .scale i{width:18px}
   .movers{display:none}
+  #moversBtn{display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line);
+    background:transparent;color:var(--txt);font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+  footer.mopen{flex-wrap:wrap}
+  footer.mopen .movers{display:flex;flex-direction:column;gap:6px;flex-basis:100%;order:9;font-size:12px;padding:6px 0 2px;border-top:1px solid var(--line)}
+  footer.mopen .movers div{flex-wrap:wrap}
   .seg button{padding:6px 8px;font-size:11.5px}
   .seg.periods button{min-width:32px;padding:6px 5px}
 }
@@ -191,8 +202,10 @@ footer{border-top:1px solid var(--line);background:var(--panel);padding:7px 12px
 <footer>
   <div class="scale" id="scale"></div>
   <span class="grow"></span>
+  <button id="moversBtn" type="button" aria-expanded="false">▲▼ 상승·하락 TOP</button>
   <div class="movers" id="movers"></div>
 </footer>
+<div id="toast" role="status"></div>
 
 <div id="tip"></div>
 
@@ -398,7 +411,7 @@ function drawScale(){
   const pts=[-cap,-cap*0.6,-cap*0.25,0,cap*0.25,cap*0.6,cap];
   document.getElementById("scale").innerHTML =
     `<u class="w" style="color:var(--dn);font-weight:700">하락</u>`+
-    pts.map(v=>`<i style="background:${colorFor(v,cap)}" title="${v.toFixed(1)}%"></i>`).join("")+
+    pts.map((v,i)=>`<span class="sc"><i style="background:${colorFor(v,cap)}" title="${v.toFixed(1)}%"></i><small>${i===0?"-"+cap+"%":i===3?"0":i===6?"+"+cap+"%":""}</small></span>`).join("")+
     `<u class="w" style="color:var(--up);font-weight:700">상승</u>`+
     `<u style="color:var(--dim);padding-left:8px">포화 ±${cap}% · ${PERIOD_LABEL[state.period]} 기준 · 상승 초록 / 하락 빨강</u>`;
 }
@@ -456,6 +469,15 @@ document.getElementById("mkt").onclick = e=>{
   state.market=b.dataset.m; state.zoom=null; sync();
 };
 document.getElementById("search").oninput = e=>{state.query=e.target.value; render();};
+let toastT;
+function showToast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.style.display="block";
+  clearTimeout(toastT); toastT=setTimeout(()=>{t.style.display="none"},2800); }
+document.getElementById("moversBtn").onclick = e=>{
+  const f=document.querySelector("footer"), open=!f.classList.contains("mopen");
+  f.classList.toggle("mopen",open); e.currentTarget.setAttribute("aria-expanded",open);
+  e.currentTarget.textContent = open ? "▲▼ 닫기" : "▲▼ 상승·하락 TOP";
+  if(typeof render==="function") render();
+};
 const $size=document.getElementById("sizeBtn");
 function applySize(){
   $size.textContent=SIZE_MODES[state.sizeMode][0];
@@ -464,6 +486,7 @@ function applySize(){
 $size.onclick = ()=>{
   state.sizeMode=(state.sizeMode+1)%SIZE_MODES.length;
   applySize();
+  showToast("셀 크기: "+SIZE_MODES[state.sizeMode][0]+" — "+SIZE_MODES[state.sizeMode][1]);
   try{localStorage.setItem("kmap-size", state.sizeMode)}catch(_){}
   render();
 };
