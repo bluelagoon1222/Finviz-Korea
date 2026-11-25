@@ -127,8 +127,23 @@ jobs:
         with:
           path: site
 
+      # The uploaded artifact sometimes is not yet visible to the deploy step
+      # ("No artifacts named github-pages were found"), so wait and retry.
+      - name: Wait for artifact to register
+        run: sleep 15
+
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Retry deploy after a pause
+        if: steps.deployment.outcome != 'success'
+        run: sleep 45
+
+      - name: Deploy to GitHub Pages (retry)
+        id: deployment2
+        if: steps.deployment.outcome != 'success'
         uses: actions/deploy-pages@v4
 
       - name: Summary
