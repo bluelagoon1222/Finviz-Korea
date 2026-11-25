@@ -115,6 +115,19 @@ header{background:var(--panel);border-bottom:1px solid var(--line);padding:8px 1
   border-top:1px solid #2a313c;padding-top:5px}
 #tip .grid div{display:flex;justify-content:space-between;font-size:11px;gap:6px}
 #tip .grid span{color:#8b949e}
+/* 모바일(터치): 셀을 누르면 하단 상세 카드, 한 번 더 누르거나 버튼으로 네이버 금융 */
+#tip .tact{display:none}
+#tip.sheet{left:8px!important;right:8px;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom,0px));
+  min-width:0;pointer-events:auto;padding:12px 14px;font-size:14px;border-radius:12px}
+#tip.sheet h5{font-size:16px}
+#tip.sheet td{font-size:14px;padding:3px 0}
+#tip.sheet .grid div{font-size:13px}
+#tip.sheet .tact{display:flex;gap:8px;margin-top:10px}
+#tip.sheet .tact a,#tip.sheet .tact button{flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;
+  border-radius:8px;font:inherit;font-size:14px;font-weight:700;text-decoration:none;cursor:pointer}
+#tip.sheet .tact a{background:#2f81f7;color:#fff;border:0}
+#tip.sheet .tact button{background:transparent;color:#e6edf3;border:1px solid #39414d}
+.cell.sel{outline:3px solid #fff;outline-offset:-3px;z-index:7}
 
 /* ---------- footer ---------- */
 footer{border-top:1px solid var(--line);background:var(--panel);padding:7px 12px;
@@ -270,6 +283,7 @@ function sizeOf(r){
 
 let _lastH = 0, _reflow = false;
 function render(){
+  if(selEl){ $tip.style.display="none"; $tip.classList.remove("sheet"); selEl=null; }
   const rows = rowsOf(); lastRows = rows;
   const P = state.period, cap = CAP[P];
   drawStats(rows); drawMovers(rows);          // 헤더 높이를 먼저 확정한 뒤 측정
@@ -404,9 +418,14 @@ function tipHTML(r){
     <table>${rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join("")}</table>
     <div class="grid">${grid}</div>`;
 }
+var lastPtr="mouse", selEl=null;
+$map.addEventListener("pointerdown", e=>{ lastPtr=e.pointerType||"mouse"; });
+function closeSheet(){ $tip.style.display="none"; $tip.classList.remove("sheet"); if(selEl){selEl.classList.remove("sel"); selEl=null;} }
 $map.addEventListener("mousemove", e=>{
+  if(lastPtr!=="mouse") return;
   const el=e.target.closest(".cell");
   if(!el||!el._r){$tip.style.display="none";return}
+  $tip.classList.remove("sheet");
   $tip.innerHTML=tipHTML(el._r); $tip.style.display="block";
   const w=$tip.offsetWidth,h=$tip.offsetHeight;
   let x=e.clientX+14, y=e.clientY+14;
@@ -414,12 +433,19 @@ $map.addEventListener("mousemove", e=>{
   if(y+h>innerHeight-8) y=e.clientY-h-14;
   $tip.style.left=Math.max(4,x)+"px"; $tip.style.top=Math.max(4,y)+"px";
 });
-$map.addEventListener("mouseleave", ()=>{$tip.style.display="none"});
+$map.addEventListener("mouseleave", ()=>{ if(lastPtr==="mouse") $tip.style.display="none"; });
 $map.addEventListener("click", e=>{
   const el=e.target.closest(".cell");
-  if(!el||!el._r) return;
-  window.open("https://finance.naver.com/item/main.naver?code="+el._r.c,"_blank","noopener");
+  if(!el||!el._r){ if(lastPtr!=="mouse") closeSheet(); return; }
+  const url="https://finance.naver.com/item/main.naver?code="+el._r.c;
+  if(lastPtr==="mouse" || selEl===el){ window.open(url,"_blank","noopener"); return; }
+  if(selEl) selEl.classList.remove("sel");
+  selEl=el; el.classList.add("sel");
+  $tip.innerHTML=tipHTML(el._r)+`<div class="tact"><a href="${url}" target="_blank" rel="noopener">네이버 금융 열기</a><button type="button" id="tipClose">닫기</button></div>`;
+  $tip.classList.add("sheet"); $tip.style.display="block";
 });
+$tip.addEventListener("click", e=>{ if(e.target.id==="tipClose") closeSheet(); });
+addEventListener("scroll", ()=>{ if(lastPtr==="mouse") $tip.style.display="none"; }, true);
 
 /* ================= 컨트롤 ================= */
 const $per=document.getElementById("per");
